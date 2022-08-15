@@ -1,10 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, TextInput, ScrollView, Pressable } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, ScrollView, Pressable, Alert } from 'react-native';
 import { theme } from './color';
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { MaterialIcons, AntDesign } from '@expo/vector-icons';
 import Checkbox from 'expo-checkbox';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+
+const KEY = "@toDos";
 export default function App() {
 
   const [working, setWorking] = useState(true);
@@ -16,7 +19,27 @@ export default function App() {
 
   const [toDo, setTodo] = useState({});
 
-  const subMit = () => {
+  const saveToDos = async (toSave)=>{
+    const s = JSON.stringify(toSave);
+    await AsyncStorage.setItem(KEY,s);
+  };
+
+  const loadToDos = async()=>{
+    // AsyncStorage.clear();
+    try{
+      const s = await AsyncStorage.getItem(KEY);
+    setTodo(JSON.parse(s));
+    } catch(e){
+      Alert.alert("Sorry");
+    }
+    
+  }
+
+  useEffect(()=>{
+    loadToDos();
+  },[]);
+
+  const subMit = async() => {
     setAdding(false);
     if (text == "null") {
       return;
@@ -26,6 +49,7 @@ export default function App() {
     const newTodo = { ...toDo, [Date.now()]: { text, work: working, now: false } };
 
     setTodo(newTodo);
+    await saveToDos(newTodo);
     setText("null");
 
   }
@@ -34,15 +58,34 @@ export default function App() {
     setText(event);
   }
 
-  const checking = (id) => {
+  const checking = async (id) => {
+    
     setTodo(Object.keys(toDo).map((key) =>
       key === id ? { ...toDo[key], now: !toDo[key].now } : toDo[key]
     ))
+    const newTodo = {...toDo};
+    await saveToDos(newTodo);
   }
+
+  const delTodo = async(id)=>{
+    const newTodos = {...toDo};
+    delete newTodos[id];
+    setTodo(newTodos);
+    await saveToDos(newTodos);
+  }
+
   return (
     <View style={{ ...styles.container, backgroundColor: working ? "black" : "white" }}>
 
+      
       <StatusBar style={working ? "inverted" : "auto"} />
+
+      {/* <View style={{alignItems:"flex-end"}}>
+        <Pressable style={styles.clearBTN}>
+          <Text style={{fontSize:13,fontWeight:"600"}}>ALL CLEAR</Text>
+        </Pressable>
+      </View> */}
+
       <View style={styles.header}>
         <TouchableOpacity
           onPress={work}>
@@ -89,7 +132,7 @@ export default function App() {
 
             </View>
             <Pressable
-              onPress={() => console.log("Del")}>
+              onPress={() =>delTodo(key)}>
               <AntDesign name="delete" size={24} color="grey" style={styles.delBTN} />
             </Pressable>
 
@@ -123,7 +166,7 @@ const styles = StyleSheet.create({
   header: {
     justifyContent: "space-between",
     flexDirection: "row",
-    marginTop: 80,
+    marginTop: 75,
   },
 
   btnText: {
@@ -183,5 +226,16 @@ const styles = StyleSheet.create({
   delBTN: {
     alignContent: "flex-end"
   },
+
+  clearBTN:{
+    backgroundColor:theme.realGrey,
+    width:80,
+    height:30,
+    marginTop:40,
+    borderRadius:30,
+    padding:5,
+    paddingLeft:7,
+  },
+
 
 });
