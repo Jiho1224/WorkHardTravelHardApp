@@ -8,6 +8,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 const KEY = "@toDos";
+let today="";
+
+
 export default function App() {
 
   const [working, setWorking] = useState(true);
@@ -19,38 +22,48 @@ export default function App() {
 
   const [toDo, setTodo] = useState({});
 
-  const saveToDos = async (toSave)=>{
+  const saveToDos = async (toSave) => {
     const s = JSON.stringify(toSave);
-    await AsyncStorage.setItem(KEY,s);
+    await AsyncStorage.setItem(KEY, s);
   };
 
-  const loadToDos = async()=>{
+  const loadToDos = async () => {
     // AsyncStorage.clear();
-    try{
+    try {
       const s = await AsyncStorage.getItem(KEY);
-    setTodo(JSON.parse(s));
-    } catch(e){
+      setTodo(JSON.parse(s));
+      const cur = new Date();
+      const year = cur.getFullYear();
+      const month = cur.getMonth()+1;
+      const date = cur.getDate();
+
+      today = `${year}.${month}.${date}`;
+
+      
+    } catch (e) {
       Alert.alert("Sorry");
     }
-    
+
   }
 
-  useEffect(()=>{
+  useEffect(() => {
     loadToDos();
-  },[]);
+  }, []);
 
-  const subMit = async() => {
+  const subMit = async () => {
     setAdding(false);
     if (text == "null") {
       return;
     }
 
 
-    const newTodo = { ...toDo, [Date.now()]: { text, work: working, now: false } };
+    const newTodo = { ...toDo, [Date.now()]: { text, work: working, now: false,date:today } };
 
     setTodo(newTodo);
     await saveToDos(newTodo);
     setText("null");
+
+    console.log(newTodo);
 
   }
 
@@ -59,32 +72,45 @@ export default function App() {
   }
 
   const checking = async (id) => {
-    
-    setTodo(Object.keys(toDo).map((key) =>
+
+    const newTodo = Object.keys(toDo).map((key) =>
       key === id ? { ...toDo[key], now: !toDo[key].now } : toDo[key]
-    ))
-    const newTodo = {...toDo};
+    )
+    setTodo(newTodo);
     await saveToDos(newTodo);
   }
 
-  const delTodo = async(id)=>{
-    const newTodos = {...toDo};
+  const delTodo = async (id) => {
+    const newTodos = { ...toDo };
     delete newTodos[id];
     setTodo(newTodos);
     await saveToDos(newTodos);
   }
 
+  const delAllCheck = async () => {
+    Alert.alert('삭제', '체크된 항목을 모두 삭제하시겠습니까?', [
+      {
+        text: 'Cancel',
+        style: 'cancel'
+      }, {
+        text: 'OK',
+        onPress: async () => {
+          const newTodo = { ...toDo };
+          Object.keys(newTodo).map((key) =>
+            (toDo[key].now === true) && (toDo[key].work === working) ? delete newTodo[key] : null);
+
+          setTodo(newTodo);
+          await saveToDos(newTodo);
+        }
+      }
+    ]);
+  }
+
   return (
     <View style={{ ...styles.container, backgroundColor: working ? "black" : "white" }}>
 
-      
-      <StatusBar style={working ? "inverted" : "auto"} />
 
-      {/* <View style={{alignItems:"flex-end"}}>
-        <Pressable style={styles.clearBTN}>
-          <Text style={{fontSize:13,fontWeight:"600"}}>ALL CLEAR</Text>
-        </Pressable>
-      </View> */}
+      <StatusBar style={working ? "inverted" : "auto"} />
 
       <View style={styles.header}>
         <TouchableOpacity
@@ -112,8 +138,15 @@ export default function App() {
       </View>) : (<View></View>)}
 
       <ScrollView style={{ marginTop: 10, }}>
-        {Object.keys(toDo).map((key) => (toDo[key].work === working ?
+        {working?(<View>
+          <Text style={{color:"white", fontWeight:"600",
+        fontSize:20}}>Today</Text>
+        <View style={{flex:1, height:1, width:"93%", backgroundColor:"white",marginTop:5,marginBottom:10,}}></View>
+        </View>):null}
 
+        
+        {Object.keys(toDo).map((key) => ((toDo[key].work === working ) ?
+        (toDo[key].date !== today && working === true)? null:
           (<View key={key} style={styles.toDo}>
             <View style={{ flexDirection: "row" }}>
               <Checkbox
@@ -130,9 +163,44 @@ export default function App() {
                 {toDo[key].text}
               </Text>
 
-            </View>
+            </View>     
             <Pressable
-              onPress={() =>delTodo(key)}>
+              onPress={() => delTodo(key)}
+              onLongPress={delAllCheck}>
+              <AntDesign name="delete" size={24} color="grey" style={styles.delBTN} />
+            </Pressable>
+
+          </View>) : null))}
+          
+          {working?(<View>
+          <Text style={{color:"white",fontWeight:"600",
+        fontSize:20,marginTop:15,}}>미뤄둔 일</Text>
+        <View style={{flex:1, height:1, width:"93%", backgroundColor:"white",marginTop:5,marginBottom:10,}}>
+        </View>
+        </View>):null}
+        
+
+          {Object.keys(toDo).map((key) => ((toDo[key].work === working && working === true && toDo[key].date !== today ) ?
+          (<View key={key} style={styles.toDo}>
+            <View style={{ flexDirection: "row" }}>
+              <Checkbox
+                style={styles.checkBox}
+                value={toDo[key].now}
+                onValueChange={() => checking(key)}
+                color={working ? (toDo[key].now === true ? '#E9BD15' : undefined) : (toDo[key].now === true ? '#587558' : undefined)}
+              />
+              <Text style={{
+                ...styles.toDoText,
+                color: working ? (toDo[key].now === true ? theme.toDoBg : "white") :
+                  (toDo[key].now === true ? "#999999" : "black"), ...(toDo[key].now ? (styles.checked) : (""))
+              }}>
+                {toDo[key].text}
+              </Text>
+
+            </View>     
+            <Pressable
+              onPress={() => delTodo(key)}
+              onLongPress={delAllCheck}>
               <AntDesign name="delete" size={24} color="grey" style={styles.delBTN} />
             </Pressable>
 
@@ -167,10 +235,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     flexDirection: "row",
     marginTop: 75,
+    marginBottom: 5,
   },
 
   btnText: {
-
     fontSize: 44,
     fontWeight: "600",
   },
@@ -180,7 +248,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 30,
-    marginTop: 20,
+    marginTop: 5,
     fontSize: 17,
     color: "black",
     borderWidth: 2,
@@ -227,14 +295,14 @@ const styles = StyleSheet.create({
     alignContent: "flex-end"
   },
 
-  clearBTN:{
-    backgroundColor:theme.realGrey,
-    width:80,
-    height:30,
-    marginTop:40,
-    borderRadius:30,
-    padding:5,
-    paddingLeft:7,
+  clearBTN: {
+    backgroundColor: theme.realGrey,
+    width: 80,
+    height: 30,
+    marginTop: 40,
+    borderRadius: 30,
+    padding: 5,
+    paddingLeft: 7,
   },
 
 
